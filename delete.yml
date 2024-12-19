@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "0.3",
+  "description": "Automates the deletion of EC2, VPC, EKS, S3 objects and buckets, ECR, ECS, and RDS resources.",
+  "mainSteps": [
+    {
+      "name": "deleteResources",
+      "action": "aws:runCommand",
+      "isEnd": true,
+      "inputs": {
+        "DocumentName": "AWS-RunShellScript",
+        "Parameters": {
+          "commands": [
+            "#!/bin/bash",
+            "set -e",
+            "echo 'Deleting EC2 instances...'",
+            "aws ec2 describe-instances --query 'Reservations[].Instances[].InstanceId' --output text | xargs -I {} aws ec2 terminate-instances --instance-ids {}",
+            "echo 'Deleting VPCs and dependencies...'",
+            "aws ec2 describe-vpcs --query 'Vpcs[].VpcId' --output text | xargs -I {} aws ec2 delete-vpc --vpc-id {}",
+            "echo 'Deleting EKS clusters...'",
+            "aws eks list-clusters --query 'clusters[]' --output text | xargs -I {} aws eks delete-cluster --name {}",
+            "echo 'Deleting S3 objects and buckets...'",
+            "aws s3 ls | awk '{print $3}' | xargs -I {} aws s3 rm s3://{} --recursive",
+            "aws s3 ls | awk '{print $3}' | xargs -I {} aws s3 rb s3://{} --force",
+            "echo 'Deleting ECR repositories...'",
+            "aws ecr describe-repositories --query 'repositories[].repositoryName' --output text | xargs -I {} aws ecr delete-repository --repository-name {} --force",
+            "echo 'Deleting ECS clusters...'",
+            "aws ecs list-clusters --query 'clusterArns[]' --output text | xargs -I {} aws ecs delete-cluster --cluster {}",
+            "echo 'Deleting RDS instances...'",
+            "aws rds describe-db-instances --query 'DBInstances[].DBInstanceIdentifier' --output text | xargs -I {} aws rds delete-db-instance --db-instance-identifier {} --skip-final-snapshot"
+          ]
+        }
+      }
+    }
+  ]
+}
